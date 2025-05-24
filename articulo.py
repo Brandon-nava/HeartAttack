@@ -24,6 +24,7 @@ config_modelos = {
     }
 }
 
+'''
 # Columna para imagen
 col1, col2 = st.columns([1, 3])
 with col1:
@@ -35,7 +36,7 @@ with col2:
     st.write("""
     Esta aplicación predice el riesgo de un posible ataque cardíaco utilizando diferentes algoritmos de clasificación.
     """)
-
+'''
 st.markdown("---")
 
 # Selección de modelo
