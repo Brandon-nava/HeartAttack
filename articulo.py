@@ -1,10 +1,3 @@
-import streamlit as st
-import numpy as np
-import pandas as pd
-import pickle
-import time
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, roc_curve, auc, ConfusionMatrixDisplay
 
 # Cargar modelos y escaladores
 def load_model_and_scaler(model_path, scaler_path):
