@@ -1,101 +1,80 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
-import pickle
-import time
+import numpy as np
+import joblib
+import os
+from PIL import Image
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, roc_curve, auc, ConfusionMatrixDisplay
 
-# Cargar modelos y escaladores
-def load_model_and_scaler(model_path, scaler_path):
-    model = pickle.load(open(model_path, 'rb'))
-    scaler = pickle.load(open(scaler_path, 'rb'))
-    return model, scaler
+# Configuración de la página
+st.set_page_config(page_title="Clasificación de ataque cardíaco", layout="wide")
 
-# Cargar métricas desde archivo
-def load_metrics(json_path):
-    return pd.read_json(json_path)
-
-# Visualización de probabilidad
-def plot_pie(prob):
-    fig, ax = plt.subplots()
-    ax.pie([1 - prob, prob], labels=["Negativo", "Positivo"], autopct='%1.1f%%', colors=['skyblue', 'salmon'])
-    st.pyplot(fig)
-
-# Visualización de matriz de confusión
-def plot_confusion_matrix(y_true, y_pred):
-    cm = confusion_matrix(y_true, y_pred)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-    fig, ax = plt.subplots()
-    disp.plot(ax=ax)
-    st.pyplot(fig)
-
-# Visualización de curva ROC
-def plot_roc(y_true, y_proba):
-    fpr, tpr, _ = roc_curve(y_true, y_proba)
-    roc_auc = auc(fpr, tpr)
-    fig, ax = plt.subplots()
-    ax.plot(fpr, tpr, color='darkorange', lw=2, label='AUC = %0.2f' % roc_auc)
-    ax.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    ax.set_xlabel('FPR')
-    ax.set_ylabel('TPR')
-    ax.set_title('ROC Curve')
-    ax.legend(loc="lower right")
-    st.pyplot(fig)
-
-# Diccionario de modelos
-model_info = {
-    "Modelo 1 (Age, CK-MB, Troponin)": {
-        "features": ['Age', 'CK-MB', 'Troponin'],
-        "model_path": 'modeloDataset1.pkl',
-        "scaler_path": 'escalador1.pkl',
-        "metrics_path": 'metricas_modelo_1.json'
+# Cargar configuraciones de modelos
+config_modelos = {
+    'Modelo 1': {
+        'modelo': joblib.load('modeloDataset1.pkl'),
+        'scaler': joblib.load('escalador1.pkl'),
+        'variables': ['Age', 'CK-MB', 'Troponin']
     },
-    "Modelo 2 (exang, cp, oldpeak, thalach, ca, target)": {
-        "features": ['exang', 'cp', 'oldpeak', 'thalach', 'ca', 'target'],
-        "model_path": 'modeloDataset2.pkl',
-        "scaler_path": 'escalador2.pkl',
-        "metrics_path": 'metricas_modelo_2.json'
+    'Modelo 2': {
+        'modelo': joblib.load('modeloDataset2.pkl'),
+        'scaler': joblib.load('escalador2.pkl'),
+        'variables': ['exang', 'cp', 'oldpeak', 'thalach', 'ca','target']
     }
 }
 
-st.title("Predicción de Ataques Cardiacos")
-opcion = st.selectbox("Selecciona el modelo a usar", list(model_info.keys()))
-info = model_info[opcion]
+# Columna para imagen
+col1, col2 = st.columns([1, 3])
+with col1:
+    imagen = Image.open("imagenes/ataque_cardiaco.jpg")
+    st.image(imagen, use_column_width=True)
 
-# Cargar modelo y escalador correspondiente
-model, scaler = load_model_and_scaler(info["model_path"], info["scaler_path"])
+with col2:
+    st.title("Clasificación de ataque cardíaco")
+    st.write("""
+    Esta aplicación predice el riesgo de un posible ataque cardíaco utilizando diferentes algoritmos de clasificación.
+    """)
 
-st.subheader("Ingresar valores")
-user_input = []
-for var in info["features"]:
-    user_input.append(st.number_input(f"{var}", step=0.1))
+st.markdown("---")
 
+# Selección de modelo
+st.subheader("Seleccione el modelo para la predicción")
+modelo_nombre = st.selectbox("Modelo", list(config_modelos.keys()))
+
+# Obtener modelo, scaler y variables
+config = config_modelos[modelo_nombre]
+modelo = config['modelo']
+scaler = config['scaler']
+vars_requeridas = config['variables']
+
+st.markdown("### Ingrese los datos del paciente")
+
+# Entradas condicionales
+valores = {}
+if 'edad' in vars_requeridas:
+    valores['edad'] = st.number_input("Edad", min_value=0, max_value=120, value=45)
+
+if 'ckmb' in vars_requeridas:
+    ckmb = st.number_input("CK-MB", value=2.86, min_value=0.00, format="%.2f")
+    valores['ckmb'] = np.log(ckmb + 1e-10)
+
+if 'troponina' in vars_requeridas:
+    troponina = st.number_input("Troponina", value=0.003, min_value=0.000, format="%.3f", step=0.001)
+    valores['troponina'] = np.log(troponina + 1e-10)
+
+# Procesar predicción al hacer clic
 if st.button("Predecir"):
-    input_scaled = scaler.transform([user_input])
-    start = time.time()
-    proba = model.predict_proba(input_scaled)[0][1]
-    pred = model.predict(input_scaled)[0]
-    elapsed_time = time.time() - start
+    entrada = np.array([[valores[v] for v in vars_requeridas]])
+    entrada_scaled = scaler.transform(entrada)
+    pred = modelo.predict(entrada_scaled)[0]
 
-    st.subheader("Resultado de Predicción")
-    plot_pie(proba)
-    st.write(f"Predicción: {'Positivo' if pred == 1 else 'Negativo'}")
-    st.write(f"Tiempo de inferencia: {elapsed_time:.4f} segundos")
+    resultado = "Positivo" if pred == 1 else "Negativo"
+    color = "red" if pred == 1 else "green"
 
-# Sección de métricas
-st.sidebar.title("Visualización de métricas")
-metrica = st.sidebar.radio("Selecciona una métrica", ["Tabla de métricas", "Curva ROC", "Matriz de Confusión"])
+    st.markdown(f"### Resultado: <span style='color:{color}'>{resultado}</span>", unsafe_allow_html=True)
 
-metrics_df = load_metrics(info["metrics_path"])
-y_true = metrics_df["y_true"]
-y_pred = metrics_df["y_pred"]
-y_proba = metrics_df["y_proba"]
-
-st.subheader("Métricas del modelo")
-if metrica == "Tabla de métricas":
-    st.table(metrics_df[["accuracy", "precision", "recall", "f1"]].drop_duplicates())
-elif metrica == "Curva ROC":
-    plot_roc(y_true, y_proba)
-elif metrica == "Matriz de Confusión":
-    plot_confusion_matrix(y_true, y_pred)
+    # Mostrar probabilidades si están disponibles
+    if hasattr(modelo, 'predict_proba'):
+        proba = modelo.predict_proba(entrada_scaled)[0]
+        st.write(f"Probabilidad Negativa: {proba[0]:.2f}")
+        st.write(f"Probabilidad Positiva: {proba[1]:.2f}")
