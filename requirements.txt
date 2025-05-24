@@ -1,7 +1,6 @@
-streamlit 
-numpy 
-pandas 
-pickle
-time
-matplotlib.pyplot 
-sklearn.metrics import confusion_matrix, roc_curve, auc, ConfusionMatrixDisplay
+streamlit
+numpy
+pandas
+scikit-learn
+matplotlib
+pickle5
