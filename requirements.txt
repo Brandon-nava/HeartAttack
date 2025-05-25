@@ -5,3 +5,4 @@ scikit-learn>=1.0
 matplotlib>=3.5
 PIL
 joblib
+xgboost
